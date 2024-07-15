@@ -1,6 +1,6 @@
 const express = require('express')
 const { ObjectId } = require('mongodb')
-const { connectToDb, getDb } = require('./server')
+const { connectToDb, getDb } = require('./dbConnection')
 
 // init app
 const app = express()
@@ -11,8 +11,8 @@ let db
 
 connectToDb((err) => {
     if (!err) {
-        app.listen(3000, () => {
-            console.log('app listening on port 3000')
+        app.listen(5000, () => {
+            console.log('app listening on port 5000')
         })
         db = getDb()
     }
@@ -21,11 +21,18 @@ connectToDb((err) => {
 
 //routes
 app.get('/list', (req, res) => {
-    const todoItems = []
+    
+    // current page
+    const page = req.query.page || 0
+    const itemsPerPage = 3
+
+    let todoItems = []
 
     db.collection('todoappcollection')
         .find()
         .sort({ id: 1})
+        // .skip(page * itemsPerPage)
+        // .limit(itemsPerPage)
         .forEach(item => todoItems.push(item))
         .then(() => {
             res.status(200).json(todoItems)
@@ -63,6 +70,24 @@ app.post('/list', (req, res) => {
         .catch(err => {
             res.status(500).json({ err: 'could not create new list item'})
         })
+})
+
+// bulk load items
+app.post('/bulk_list', (req, res) => {
+    const listItems = req.body
+    if(Array.isArray(listItems) && listItems.length !== 0) {
+        db.collection('todoappcollection')
+            .insertMany(listItems)
+            .then((result) => {
+                res.status(201).json(result)
+            })
+            .catch(err => {
+                res.status(500).json({ err: 'could not create new list item'})
+            })
+    } else {
+        console.log(res)
+        res.status(500).json({error: 'body is not an array or is empty'})
+    }
 })
 
 app.delete('/list/:id', (req, res) => {
